@@ -2,8 +2,10 @@ package forms
 
 import (
 	"fmt"
+	"github.com/hekonsek/jxform/util"
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
+	"log"
 )
 
 type FormDefinition struct {
@@ -15,7 +17,7 @@ type Environment struct {
 	Name string `yaml:"name"`
 }
 
-func Provision() error {
+func Provision(verbose bool) error {
 	definitionFile, err := ioutil.ReadFile("example.yml")
 	if err != nil {
 		return err
@@ -27,7 +29,12 @@ func Provision() error {
 		return err
 	}
 
-	fmt.Println(definition)
+	eksCreateCommand := []string{"create", "cluster", "eks", "--skip-installation=true"}
+	eksCreateCommand = append(eksCreateCommand, fmt.Sprintf("--verbose=%t", verbose))
+	err = util.NewExecs().Sout("jx", eksCreateCommand...)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	return nil
 }
