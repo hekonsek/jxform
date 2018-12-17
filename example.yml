@@ -1,3 +1,8 @@
 name: mycloud
+domain: konsek.cloud
+git:
+  server: https://cloud.bitbucket.com
+  username: myUsername
+  token: someSecretToken
 environments:
   - name: staging
