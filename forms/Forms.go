@@ -2,10 +2,12 @@ package forms
 
 import (
 	"fmt"
+	"github.com/fatih/color"
 	"github.com/hekonsek/jxform/util"
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"log"
+	"strings"
 )
 
 type FormDefinition struct {
@@ -29,11 +31,33 @@ func Provision(verbose bool) error {
 		return err
 	}
 
-	eksCreateCommand := []string{"create", "cluster", "eks", "--skip-installation=true"}
-	eksCreateCommand = append(eksCreateCommand, fmt.Sprintf("--verbose=%t", verbose))
-	err = util.NewExecs().Sout("jx", eksCreateCommand...)
+	eksGetCommand := []string{"get", "eks"}
+	if verbose {
+		fmt.Printf("About to execute command: %s\n", append([]string{"jx"}, eksGetCommand...))
+	}
+	out, err := util.NewExecs().Run("jx", eksGetCommand...)
 	if err != nil {
 		log.Fatal(err)
+	}
+	hasCluster := false
+	for _, line := range out {
+		if strings.HasPrefix(line, definition.Name+"\t") {
+			hasCluster = true
+			break
+		}
+	}
+	if !hasCluster {
+		eksCreateCommand := []string{"create", "cluster", "eks", "--cluster-name=" + definition.Name, "--skip-installation=true"}
+		eksCreateCommand = append(eksCreateCommand, fmt.Sprintf("--verbose=%t", verbose))
+		if verbose {
+			fmt.Printf("About to execute command: %s\n", append([]string{"jx"}, eksCreateCommand...))
+		}
+		err = util.NewExecs().Sout("jx", eksCreateCommand...)
+		if err != nil {
+			log.Fatal(err)
+		}
+	} else {
+		fmt.Printf("Cluster %s already exists.\n", color.GreenString(definition.Name))
 	}
 
 	return nil
