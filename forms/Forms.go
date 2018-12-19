@@ -10,6 +10,7 @@ import (
 	"os"
 	"strings"
 )
+import "github.com/pkg/errors"
 
 type FormDefinition struct {
 	Name         string        `yaml:"name"`
@@ -30,6 +31,7 @@ type Git struct {
 	Server   string `yaml:"server"`
 	Username string `yaml:"username"`
 	Token    string `yaml:"token"`
+	Owner    string `yaml:"owner"`
 }
 
 func (git Git) ResolveUsername() string {
@@ -46,6 +48,14 @@ func (git Git) ResolveToken() string {
 		return token
 	}
 	return git.Token
+}
+
+func (git Git) ResolveOwner() string {
+	owner, found := os.LookupEnv("GIT_OWNER")
+	if found {
+		return owner
+	}
+	return git.Owner
 }
 
 type Environment struct {
@@ -88,7 +98,7 @@ func Provision(verbose bool) error {
 		}
 		err = util.NewExecs().Sout("jx", eksCreateCommand...)
 		if err != nil {
-			log.Fatal(err)
+			return err
 		}
 	} else {
 		fmt.Printf("EKS cluster %s already exists.\n", color.GreenString(definitionName))
@@ -96,7 +106,9 @@ func Provision(verbose bool) error {
 
 	helmList, err := util.NewExecs().Run("helm", "list")
 	if err != nil {
-		log.Fatal(err)
+		if !strings.Contains(helmList[0], "could not find tiller") && !strings.Contains(helmList[0], "configmaps is forbidden") {
+			return errors.Wrap(err, strings.Join(helmList, "\n"))
+		}
 	}
 	isJxInstalled := false
 	for i, line := range helmList {
@@ -122,6 +134,39 @@ func Provision(verbose bool) error {
 		}
 	} else {
 		fmt.Printf("Jenkins X already installed.\n")
+	}
+
+	existingEnvironments, err := util.NewExecs().Run("jx", "get", "env")
+	if err != nil {
+		return err
+	}
+	for _, environment := range definition.Environments {
+		environmentExists := false
+		for i, existingEnvironment := range existingEnvironments {
+			if i == 0 {
+				continue
+			}
+			if strings.HasPrefix(existingEnvironment, environment.Name+" ") {
+				environmentExists = true
+				break
+			}
+		}
+		if environmentExists {
+			fmt.Printf("Environment %s already exists.\n", color.GreenString(environment.Name))
+		} else {
+			createEnvCommand := []string{"create", "env", "-b", "--name=" + strings.ToLower(environment.Name), "--label=" + strings.ToLower(environment.Name),
+				"--promotion=Auto",
+				"--git-provider-url=" + definition.Git.Server, "--git-username=" + definition.Git.ResolveUsername(), "--git-owner=" + definition.Git.ResolveOwner(),
+				"--git-private=true", "--git-api-token=" + definition.Git.ResolveToken()}
+			createEnvCommand = append(createEnvCommand, fmt.Sprintf("--verbose=%t", verbose))
+			if verbose {
+				fmt.Printf("About to execute command: %s\n", append([]string{"jx"}, createEnvCommand...))
+			}
+			err = util.NewExecs().Sout("jx", createEnvCommand...)
+			if err != nil {
+				return err
+			}
+		}
 	}
 
 	return nil
