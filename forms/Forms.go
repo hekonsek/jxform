@@ -157,7 +157,7 @@ func Provision(verbose bool) error {
 			createEnvCommand := []string{"create", "env", "-b", "--name=" + strings.ToLower(environment.Name), "--label=" + strings.ToLower(environment.Name),
 				"--promotion=Auto",
 				"--git-provider-url=" + definition.Git.Server, "--git-username=" + definition.Git.ResolveUsername(), "--git-owner=" + definition.Git.ResolveOwner(),
-				"--git-private=true", "--git-api-token=" + definition.Git.ResolveToken()}
+				"--git-private=true", "--git-api-token=" + definition.Git.ResolveToken(), "--prefix=" + strings.ToLower(definition.Name)}
 			createEnvCommand = append(createEnvCommand, fmt.Sprintf("--verbose=%t", verbose))
 			if verbose {
 				fmt.Printf("About to execute command: %s\n", append([]string{"jx"}, createEnvCommand...))
