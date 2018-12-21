@@ -28,10 +28,11 @@ func (def FormDefinition) ResolveName() string {
 }
 
 type Git struct {
-	Server   string `yaml:"server"`
-	Username string `yaml:"username"`
-	Token    string `yaml:"token"`
-	Owner    string `yaml:"owner"`
+	Server     string `yaml:"server"`
+	ServerKind string `yaml:"serverKind"`
+	Username   string `yaml:"username"`
+	Token      string `yaml:"token"`
+	Owner      string `yaml:"owner"`
 }
 
 func (git Git) ResolveUsername() string {
@@ -40,6 +41,22 @@ func (git Git) ResolveUsername() string {
 		return username
 	}
 	return git.Username
+}
+
+func (git Git) ResolveServerKind() string {
+	serverKind, found := os.LookupEnv("GIT_SERVER_KIND")
+	if found {
+		return serverKind
+	}
+	return git.ServerKind
+}
+
+func (git Git) ResolveServerUrl() string {
+	serverUrl, found := os.LookupEnv("GIT_SERVER_URL")
+	if found {
+		return serverUrl
+	}
+	return git.Server
 }
 
 func (git Git) ResolveToken() string {
@@ -122,8 +139,8 @@ func Provision(verbose bool) error {
 	}
 	if !isJxInstalled {
 		installCommand := []string{"install", "--provider=eks", "-b",
-			"--git-api-token=" + definition.Git.ResolveToken(), "--git-provider-url=" + definition.Git.Server, "--git-private=true", "--git-username=" + definition.Git.ResolveUsername(),
-			"--default-environment-prefix=" + definitionName, "--no-default-environments=true", "--domain=" + definition.Domain}
+			"--git-api-token=" + definition.Git.ResolveToken(), "--git-provider-url=" + definition.Git.ResolveServerUrl(), "--git-private=true", "--git-username=" + definition.Git.ResolveUsername(),
+			"--default-environment-prefix=" + definitionName, "--no-default-environments=true", "--domain=" + definition.Domain, "--git-provider-kind=" + definition.Git.ResolveServerKind()}
 		installCommand = append(installCommand, fmt.Sprintf("--verbose=%t", verbose))
 		if verbose {
 			fmt.Printf("About to execute command: %s\n", append([]string{"jx"}, installCommand...))
@@ -156,7 +173,7 @@ func Provision(verbose bool) error {
 		} else {
 			createEnvCommand := []string{"create", "env", "-b", "--name=" + strings.ToLower(environment.Name), "--label=" + strings.ToLower(environment.Name),
 				"--promotion=Auto",
-				"--git-provider-url=" + definition.Git.Server, "--git-username=" + definition.Git.ResolveUsername(), "--git-owner=" + definition.Git.ResolveOwner(),
+				"--git-provider-url=" + definition.Git.ResolveServerUrl(), "--git-username=" + definition.Git.ResolveUsername(), "--git-owner=" + definition.Git.ResolveOwner(),
 				"--git-private=true", "--git-api-token=" + definition.Git.ResolveToken(), "--prefix=" + strings.ToLower(definition.Name)}
 			createEnvCommand = append(createEnvCommand, fmt.Sprintf("--verbose=%t", verbose))
 			if verbose {

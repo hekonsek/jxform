@@ -2,6 +2,7 @@ name: mycloud
 domain: konsek.cloud
 git:
   server: https://bitbucket.org
+  serverKind: bitbucketcloud
   username: myUsername
   token: someSecretToken
   owner: owner
